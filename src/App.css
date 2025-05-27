@@ -1,0 +1,187 @@
+.App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Custom instructor card buttons */
+.custom-btn {
+  border: 1.5px solid #3b2fd1;
+  color: #3b2fd1;
+  background: #fff;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 1rem;
+  padding: 0.4rem 1.2rem;
+  transition: all 0.2s;
+  box-shadow: none;
+  outline: none;
+}
+.custom-btn.delete-btn {
+  border-color: #e63946;
+  color: #e63946;
+}
+.custom-btn.delete-btn:hover {
+  background: #fff0f3;
+  color: #b10e23;
+  border-color: #b10e23;
+}
+.custom-btn.students-btn {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  border-color: #3b2fd1;
+  color: #3b2fd1;
+}
+.custom-btn.students-btn:hover {
+  background: #f0f3ff;
+  color: #2617b7;
+  border-color: #2617b7;
+}
+
+/* Navbar styling */
+.navbar {
+  padding: 1rem 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.navbar-brand {
+  font-weight: 600;
+  font-size: 1.5rem;
+}
+
+.nav-link {
+  font-weight: 500;
+  padding: 0.5rem 1rem !important;
+}
+
+.dropdown-menu {
+  border: none;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  border-radius: 0.5rem;
+}
+
+.dropdown-item {
+  padding: 0.75rem 1.25rem;
+  font-weight: 500;
+}
+
+.dropdown-item i {
+  width: 1.5rem;
+}
+
+/* Main content area */
+.container, .container-fluid {
+  padding: 2rem 1.5rem;
+}
+
+/* Card styling */
+.card {
+  border: none;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  margin-bottom: 1.5rem;
+}
+
+/* Button styling */
+.btn {
+  padding: 0.5rem 1.5rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.main-content {
+  padding-top: 80px; /* Increased padding for Lux theme navbar */
+  flex: 1;
+  background-color: #f8f9fa;
+}
+
+.container {
+  flex: 1;
+}
+
+/* Improve form styling */
+.form-control:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Improve button hover states */
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Add transition effects */
+.btn, .form-control {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Improve card hover effects */
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Navbar styles */
+.navbar {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.navbar-brand {
+  font-size: 1.5rem;
+}
+
+.dropdown-menu {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.navbar .nav-link {
+  padding: 0.5rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.navbar-dark .navbar-nav .nav-link {
+  color: rgba(255,255,255,0.9);
+}
+
+.navbar-dark .navbar-nav .nav-link:hover {
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.dropdown-menu {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  border-radius: 0.5rem;
+}
+
+.navbar .nav-link {
+  font-weight: 500;
+  padding: 0.5rem 1rem !important;
+}
+
+.navbar-dark .navbar-nav .nav-link {
+  color: rgba(255,255,255,0.85);
+}
+
+.navbar-dark .navbar-nav .nav-link:hover {
+  color: rgba(255,255,255,1);
+}
+
+.dropdown-item {
+  padding: 0.75rem 1.25rem;
+  font-weight: 500;
+}
+
+.dropdown-item i {
+  width: 1.5rem;
+}
+
+.dropdown-header {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  color: #6c757d;
+}
