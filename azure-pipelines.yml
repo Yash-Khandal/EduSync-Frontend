@@ -2,7 +2,10 @@ trigger:
 - main
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: ubuntu-latest
+
+variables:
+- group: frontend-staticapp-token
 
 steps:
 - task: NodeTool@0
@@ -13,11 +16,11 @@ steps:
 - script: |
     npm install
     npm run build
-  displayName: 'Install dependencies and build React app'
+  displayName: 'Build React App'
 
-- task: PublishBuildArtifacts@1
-  displayName: 'Publish Build Artifacts'
+- task: AzureStaticWebApp@0
+  displayName: 'Deploy to Azure Static Web App'
   inputs:
-    PathtoPublish: 'build'
-    ArtifactName: 'frontend'
-    publishLocation: 'Container'
+    app_location: '/'                 # Change if your React app is in a subfolder
+    output_location: 'build'          # 'build' is default for Create React App
+    azure_static_web_apps_api_token: $(deployment_token)
