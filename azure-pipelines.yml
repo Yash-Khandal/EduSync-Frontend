@@ -1,26 +1,36 @@
 trigger:
-- main
+  - main  # Trigger on pushes to 'main' branch
 
 pool:
   vmImage: ubuntu-latest
 
 variables:
-- group: frontend-staticapp-token
+  # Frontend build output directory (default for React/Angular/Vue)
+  BUILD_OUTPUT: 'build'  
+  # Your backend API base URL (replace with your actual backend URL)
+  BACKEND_API_URL: 'edusync-backpart-arekg2fubzaehuh4.eastus-01.azurewebsites.net'  
 
 steps:
-- task: NodeTool@0
-  inputs:
-    versionSpec: '20.x'
-  displayName: 'Install Node.js'
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '20.x'
+    displayName: 'Install Node.js'
 
-- script: |
-    npm install
-    npm run build
-  displayName: 'Build React App'
+  - script: |
+      npm install
+      npm run build
+    displayName: 'Build Frontend'
 
-- task: AzureStaticWebApp@0
-  displayName: 'Deploy to Azure Static Web App'
-  inputs:
-    app_location: '/'                 # Change if your React app is in a subfolder
-    output_location: 'build'          # 'build' is default for Create React App
-    azure_static_web_apps_api_token: $(deployment_token)
+  # (Optional) Inject backend API URL into frontend (e.g., via environment variable)
+  - script: |
+      echo "REACT_APP_API_URL=$edusync-backpart-arekg2fubzaehuh4.eastus-01.azurewebsites.net" >> .env.production  # For React
+      cat .env.production
+    displayName: 'Set Backend API URL'
+
+  # Deploy to Azure Static Web Apps (GitHub/Azure DevOps native integration)
+  - task: AzureStaticWebApp@0
+    displayName: 'Deploy to Azure Static Web App'
+    inputs:
+      app_location: '/'          # Root of your frontend code
+      output_location: $(BUILD_OUTPUT)  # e.g., 'build' for React
+      # Skip azure_static_web_apps_api_token (not needed for Git-based deploy)
