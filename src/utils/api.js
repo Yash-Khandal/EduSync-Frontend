@@ -1,12 +1,13 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'https://localhost:7259';
+// Use the environment variable, fallback to localhost for local dev
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:7259';
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Accept': 'application/json'
-    // Do NOT set 'Content-Type' here; let Axios set it automatically for FormData
+    // Let Axios set Content-Type automatically for FormData
   }
 });
 
