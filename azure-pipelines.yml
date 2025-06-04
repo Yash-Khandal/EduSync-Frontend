@@ -4,6 +4,9 @@ trigger:
 pool:
   vmImage: ubuntu-latest
 
+variables:
+- group: frontend-staticapp-token  # Link your variable group here
+
 steps:
 - task: NodeTool@0
   inputs:
@@ -15,8 +18,9 @@ steps:
     npm run build
   displayName: 'npm install and build'
 
-- task: PublishBuildArtifacts@1
+- task: AzureStaticWebApp@0
+  displayName: 'Deploy to Azure Static Web Apps'
   inputs:
-    PathtoPublish: 'build'
-    ArtifactName: 'frontend'
-    publishLocation: 'Container'
+    app_location: '/'
+    output_location: 'build'
+    azure_static_web_apps_api_token: $(deployment_token)
