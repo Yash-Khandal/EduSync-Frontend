@@ -54,7 +54,7 @@ const InstructorDashboard = () => {
         );
         setAssessments(instructorAssessments);
       } catch (err) {
-        setError('Failed to load dashboard data. Please try again later.');
+        setError('Failed to load dashboard data. Please try again later. Thank You');
       } finally {
         setShowLoader(false);
       }
