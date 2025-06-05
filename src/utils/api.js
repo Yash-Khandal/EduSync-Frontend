@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'edusync-backpart-arekg2fubzaehuh4.eastus-01.azurewebsites.net';
+const API_BASE_URL = 'https://edusync-backpart-arekg2fubzaehuh4.eastus-01.azurewebsites.net';
+
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
