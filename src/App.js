@@ -6,7 +6,6 @@ import Login from './components/Login';
 import Register from './components/Register';
 import Assessment from './components/Assessment';
 import CourseList from './components/CourseList';
-
 import CourseLearn from './components/CourseLearn';
 import AssessmentManagement from './components/AssessmentManagement';
 import ProgressAnalysis from './components/ProgressAnalysis';
@@ -65,6 +64,15 @@ function App() {
                 element={
                   <PrivateRoute allowedRoles={['Instructor']}>
                     <CourseForm />
+                  </PrivateRoute>
+                }
+              />
+              {/* ADD THIS MISSING EDIT ROUTE */}
+              <Route
+                path="/courses/edit/:id"
+                element={
+                  <PrivateRoute allowedRoles={['Instructor']}>
+                    <CourseForm isEdit={true} />
                   </PrivateRoute>
                 }
               />
