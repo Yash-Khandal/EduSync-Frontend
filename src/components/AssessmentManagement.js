@@ -19,15 +19,11 @@ const AssessmentManagement = () => {
       setError('');
       try {
         const res = await api.assessments.getAll();
-        // Robust filter: support both instructorId and InstructorId
+        // Filter to only show assessments created by this instructor
         const filtered = (res.data || []).filter(
           a => (a.instructorId ?? a.InstructorId) === user.id
         );
-        console.log(res.data);
-        setAssessments(res.data || []);
-      
-  
-        
+        setAssessments(filtered);
       } catch (err) {
         setError('Failed to load assessments. Please try again.');
       } finally {
@@ -94,39 +90,38 @@ const AssessmentManagement = () => {
         <div className="alert alert-danger">{error}</div>
       ) : (
         <table className="table table-bordered align-middle">
-  <thead>
-    <tr>
-      <th>S.No</th> 
-      <th>Course</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {assessments.length === 0 ? (
-      <tr>
-        <td colSpan={3} className="text-center">No assessments found.</td>
-      </tr>
-    ) : (
-      assessments.map((a, idx) => (
-        <tr key={a.assessmentId}>
-          <td>{idx + 1}</td> {/* Serial number */}
-          <td>{a.title}</td>
-          <td>
-            <button
-              className="btn btn-sm btn-warning me-2"
-              onClick={() => handleEdit(a)}
-            >Edit</button>
-            <button
-              className="btn btn-sm btn-danger"
-              onClick={() => handleDelete(a.assessmentId)}
-            >Delete</button>
-          </td>
-        </tr>
-      ))
-    )}
-  </tbody>
-</table>
-
+          <thead>
+            <tr>
+              <th>S.No</th>
+              <th>Course</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {assessments.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="text-center">No assessments found.</td>
+              </tr>
+            ) : (
+              assessments.map((a, idx) => (
+                <tr key={a.assessmentId}>
+                  <td>{idx + 1}</td>
+                  <td>{a.title}</td>
+                  <td>
+                    <button
+                      className="btn btn-sm btn-warning me-2"
+                      onClick={() => handleEdit(a)}
+                    >Edit</button>
+                    <button
+                      className="btn btn-sm btn-danger"
+                      onClick={() => handleDelete(a.assessmentId)}
+                    >Delete</button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       )}
     </div>
   );
