@@ -4,9 +4,14 @@ import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 import Loader from './Loader';
 
-// Helper to check if mediaUrl is a file (pdf/csv/etc.)
+// Helper to check if URL is a downloadable file
 function isFileUrl(url) {
   return /\.(pdf|csv|docx?|xlsx?|pptx?|txt)$/i.test(url);
+}
+
+// Helper to check if URL is an online learning link
+function isOnlineLearningUrl(url) {
+  return /youtube\.com|youtu\.be|geeksforgeeks\.org|coursera\.org|udemy\.com|khanacademy\.org/i.test(url);
 }
 
 const CourseList = () => {
@@ -40,8 +45,7 @@ const CourseList = () => {
     };
     fetchCourses();
     return () => clearTimeout(timeoutId);
-    // eslint-disable-next-line
-  }, [user && user.role, user && user.id]);
+  }, [user]);
 
   const handleDelete = async (courseId) => {
     if (!window.confirm('Are you sure you want to delete this course?')) return;
@@ -52,6 +56,10 @@ const CourseList = () => {
     } catch {
       alert('Failed to delete course.');
     }
+  };
+
+  const handleEdit = (courseId) => {
+    navigate(`/courses/edit/${courseId}`);
   };
 
   const handleViewStudents = async (courseId) => {
@@ -92,7 +100,7 @@ const CourseList = () => {
     );
   };
 
-  // Smart download for files (forces download even if server sends inline)
+  // Smart download handler for files
   const handleDownload = async (url, fileName) => {
     try {
       const response = await fetch(url, { method: 'GET' });
@@ -100,7 +108,7 @@ const CourseList = () => {
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = fileName || 'file';
+      link.download = fileName || 'course-material';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -112,7 +120,7 @@ const CourseList = () => {
 
   if (loading) return <Loader />;
 
-  // Instructor view
+  // Instructor view with Edit button added
   if (user && (user.role || '').toLowerCase() === 'instructor') {
     const instructorCourses = courses.filter(course => course.instructorId === user.id);
     return (
@@ -161,48 +169,55 @@ const CourseList = () => {
                 <div className="card-body">
                   <h5 className="card-title">{course.title}</h5>
                   <p className="card-text">{course.description}</p>
-                  <div className="d-flex mb-2" style={{ gap: "0.5rem" }}>
+                  
+                  {/* Action Buttons */}
+                  <div className="d-grid gap-2">
+                    {/* Edit Button */}
                     <button
-                      className="custom-btn"
+                      className="btn btn-outline-warning"
+                      onClick={() => handleEdit(course.courseId || course.id)}
                       style={{
-                        border: '1.5px solid #e63946',
-                        color: '#fff',
-                        background: '#e63946',
-                        borderRadius: '4px',
                         fontWeight: 500,
-                        fontSize: '1rem',
-                        padding: '0.4rem 1.2rem',
                         transition: 'all 0.2s',
                       }}
-                      onClick={() => handleDelete(course.courseId || course.id)}
                     >
+                      <i className="fas fa-edit me-2"></i>
+                      Edit Course
+                    </button>
+                    
+                    {/* Delete Button */}
+                    <button
+                      className="btn btn-danger"
+                      onClick={() => handleDelete(course.courseId || course.id)}
+                      style={{
+                        fontWeight: 500,
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <i className="fas fa-trash me-2"></i>
                       Delete
                     </button>
+                    
+                    {/* View Students Button */}
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => handleViewStudents(course.courseId || course.id)}
+                      style={{
+                        fontWeight: 500,
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <i className="fas fa-users me-2"></i>
+                      View Students
+                    </button>
                   </div>
-                  <button
-                    className="custom-btn"
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      marginTop: '0.5rem',
-                      border: '1.5px solid #3b2fd1',
-                      color: '#fff',
-                      background: '#3b2fd1',
-                      borderRadius: '4px',
-                      fontWeight: 500,
-                      fontSize: '1rem',
-                      padding: '0.4rem 1.2rem',
-                      transition: 'all 0.2s',
-                    }}
-                    onClick={() => handleViewStudents(course.courseId || course.id)}
-                  >
-                    View Students
-                  </button>
                 </div>
               </div>
             ))
           )}
         </div>
+        
+        {/* Students Modal */}
         {showStudents && (
           <div className="modal d-block" tabIndex="-1" style={{ background: 'rgba(0,0,0,0.4)' }}>
             <div className="modal-dialog modal-dialog-centered">
@@ -231,6 +246,7 @@ const CourseList = () => {
             </div>
           </div>
         )}
+        
         <style>{`
           .carousel-container::-webkit-scrollbar {
             height: 8px;
@@ -239,12 +255,16 @@ const CourseList = () => {
             background: #e0e0e0;
             border-radius: 4px;
           }
+          .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+          }
         `}</style>
       </div>
     );
   }
 
-  // Student view
+  // Student view (unchanged)
   if (user && (user.role || '').toLowerCase() === 'student') {
     return (
       <div className="container mt-4">
@@ -256,53 +276,64 @@ const CourseList = () => {
             courses.map(course => {
               const enrolled = isEnrolled(course.courseId || course.id);
               const mediaUrl = course.mediaUrl;
+              const mediaFile = course.mediaFile;
+
+              const hasOnlineLink = mediaUrl && isOnlineLearningUrl(mediaUrl);
+              const hasPdfFile = (mediaUrl && isFileUrl(mediaUrl)) || mediaFile;
+
               return (
                 <div key={course.courseId || course.id} className="col-md-6 col-lg-4 mb-4">
                   <div className="card h-100">
                     <div className="card-body">
                       <h5 className="card-title">{course.title}</h5>
-                      <p className="card-text">Instructor: {course.instructorName}</p>
-                      {mediaUrl && (
-                        <div className="d-flex gap-2 mb-2">
-                          {isFileUrl(mediaUrl) ? (
-                            <button
-                              className="btn btn-outline-success flex-fill"
-                              onClick={() => {
-                                fetch(mediaUrl)
-                                  .then(res => res.blob())
-                                  .then(blob => {
-                                    const url = window.URL.createObjectURL(blob);
-                                    const link = document.createElement('a');
-                                    link.href = url;
-                                    link.download = mediaUrl.split('/').pop() || 'file';
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                    window.URL.revokeObjectURL(url);
-                                  });
-                              }}
-                            >
-                              <i className="fas fa-download me-2"></i>
-                              Download
-                            </button>
-                          ) : (
-                            <a
-                              href={mediaUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="btn btn-outline-info flex-fill"
-                            >
-                              <i className="fas fa-eye me-2"></i>
-                              View Online
-                            </a>
-                          )}
+                      <p className="card-text">{course.description}</p>
+                      <p className="card-text">
+                        <small className="text-muted">Instructor: {course.instructorName}</small>
+                      </p>
+
+                      {/* Learning Options Section */}
+                      {(hasOnlineLink || hasPdfFile) && (
+                        <div className="mb-3">
+                          <h6 className="text-primary">📚 Learning Materials:</h6>
+                          <div className="d-grid gap-2">
+                            
+                            {/* Online Learning Link */}
+                            {hasOnlineLink && (
+                              <a
+                                href={mediaUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-outline-info btn-sm"
+                              >
+                                <i className="fas fa-globe me-2"></i>
+                                Learn Online (YouTube/GFG)
+                              </a>
+                            )}
+
+                            {/* PDF/File Download */}
+                            {hasPdfFile && (
+                              <button
+                                className="btn btn-outline-success btn-sm"
+                                onClick={() => handleDownload(
+                                  mediaFile || mediaUrl, 
+                                  `${course.title}-materials.pdf`
+                                )}
+                              >
+                                <i className="fas fa-download me-2"></i>
+                                Download PDF/Materials
+                              </button>
+                            )}
+                          </div>
                         </div>
                       )}
+
+                      {/* Enrollment/Continue Learning Button */}
                       {enrolled ? (
                         <Link
                           to={`/courses/${course.courseId || course.id}/learn`}
                           className="btn btn-success w-100"
                         >
+                          <i className="fas fa-play me-2"></i>
                           Continue Learning
                         </Link>
                       ) : (
@@ -312,12 +343,13 @@ const CourseList = () => {
                             try {
                               await api.enrollments.enroll(course.courseId || course.id, user.id);
                               setEnrolledCourses([...enrolledCourses, course]);
-                              alert('Successfully enrolled!');
+                              alert('Successfully enrolled! You can now access learning materials.');
                             } catch {
-                              alert('Failed to enroll.');
+                              alert('Failed to enroll. Please try again.');
                             }
                           }}
                         >
+                          <i className="fas fa-user-plus me-2"></i>
                           Enroll Now
                         </button>
                       )}
