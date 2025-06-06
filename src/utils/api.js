@@ -32,19 +32,15 @@ const api = {
     register: (userData) => axiosInstance.post('/api/Auth/register', userData)
   },
 
-  // Course endpoints
-  courses: {
-    getAll: () => axiosInstance.get('/api/Courses'),
-    getById: (id) => axiosInstance.get(`/api/Courses/${id}`),
-    // For file upload, use multipart/form-data
-    create: (data) => axiosInstance.post('/api/Courses', data, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    }),
-    update: (id, data) => axiosInstance.put(`/api/Courses/${id}`, data, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    }),
-    delete: (id) => axiosInstance.delete(`/api/Courses/${id}`)
-  },
+// In your courses file:
+courses: {
+  getAll: () => axiosInstance.get('/api/Courses'),
+  getById: (id) => axiosInstance.get(`/api/Courses/${id}`),
+  // Let Axios handle Content-Type automatically for FormData
+  create: (data) => axiosInstance.post('/api/Courses', data),
+  update: (id, data) => axiosInstance.put(`/api/Courses/${id}`, data),
+  delete: (id) => axiosInstance.delete(`/api/Courses/${id}`)
+},
 
   // Assessment endpoints
   assessments: {
