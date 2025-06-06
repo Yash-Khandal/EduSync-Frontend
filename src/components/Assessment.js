@@ -14,6 +14,7 @@ const Assessment = () => {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [successMsg, setSuccessMsg] = useState('');
+  const [timeLeft, setTimeLeft] = useState(10); // 10 seconds per question
 
   useEffect(() => {
     const fetchAssessment = async () => {
@@ -28,6 +29,42 @@ const Assessment = () => {
     };
     fetchAssessment();
   }, [id]);
+
+  // Timer logic - resets for each question
+  useEffect(() => {
+    if (!submitted && assessment) {
+      setTimeLeft(10); // Reset timer to 10 seconds for new question
+      const timer = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            handleAutoSubmit();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [currentQuestion, submitted, assessment]);
+
+  const handleAutoSubmit = () => {
+    // Auto-select answer if none selected (mark as unanswered)
+    if (typeof answers[currentQuestion] === 'undefined') {
+      setAnswers(prev => ({ ...prev, [currentQuestion]: -1 }));
+    }
+
+    // Move to next question or submit assessment
+    if (currentQuestion < questions.length - 1) {
+      setCurrentQuestion(prev => prev + 1);
+    } else {
+      handleSubmit({ preventDefault: () => {} }); // Simulate event object
+    }
+  };
+
+  const formatTime = (seconds) => {
+    return `${seconds}s`;
+  };
 
   if (loading) return <div>Loading...</div>;
   if (!assessment) return <div>Assessment not found.</div>;
@@ -55,8 +92,9 @@ const Assessment = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitted) return;
 
-    // Calculate score
+    // Calculate score (unanswered questions marked as -1 are wrong)
     let score = 0;
     questions.forEach((q, idx) => {
       if (answers[idx] === q.correctOption) score += 1;
@@ -83,7 +121,24 @@ const Assessment = () => {
   return (
     <div className="assessment-bg">
       <div className="assessment-container">
-        <div className="assessment-title">{assessment.title}</div>
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <div className="assessment-title">{assessment.title}</div>
+          <div 
+            className="timer" 
+            style={{ 
+              color: timeLeft <= 5 ? 'red' : timeLeft <= 10 ? 'orange' : 'inherit',
+              fontWeight: 'bold',
+              fontSize: '1.2rem',
+              background: '#f8f9fa',
+              padding: '8px 15px',
+              borderRadius: '5px',
+              border: '1px solid #dee2e6'
+            }}
+          >
+            ⏰ {formatTime(timeLeft)}
+          </div>
+        </div>
+
         <div className="progress" style={{ height: '8px', marginBottom: '24px' }}>
           <div
             className="progress-bar"
@@ -94,6 +149,7 @@ const Assessment = () => {
             aria-valuemax={100}
           />
         </div>
+
         <form onSubmit={handleSubmit}>
           <div className="question-block">
             <div className="question-text">
@@ -112,10 +168,13 @@ const Assessment = () => {
                   disabled={submitted}
                   required
                 />
-                <label className="form-check-label" htmlFor={`q${currentQuestion}o${oIdx}`}>{opt}</label>
+                <label className="form-check-label" htmlFor={`q${currentQuestion}o${oIdx}`}>
+                  {opt}
+                </label>
               </div>
             ))}
           </div>
+
           <div className="d-flex justify-content-between align-items-center mt-4">
             <button
               type="button"
@@ -125,6 +184,7 @@ const Assessment = () => {
             >
               &larr; Previous
             </button>
+            
             {currentQuestion < totalQuestions - 1 ? (
               <button
                 type="button"
@@ -145,8 +205,11 @@ const Assessment = () => {
             )}
           </div>
         </form>
+
         {successMsg && (
-          <div className={`alert mt-3 ${submitted ? 'alert-success' : 'alert-danger'}`}>{successMsg}</div>
+          <div className={`alert mt-3 ${submitted ? 'alert-success' : 'alert-danger'}`}>
+            {successMsg}
+          </div>
         )}
       </div>
     </div>
