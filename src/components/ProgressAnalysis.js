@@ -12,8 +12,6 @@ const ProgressAnalysis = () => {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState(null);
-
-  // For selecting student and assessment for chart
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [selectedAssessmentId, setSelectedAssessmentId] = useState('');
 
@@ -22,44 +20,48 @@ const ProgressAnalysis = () => {
     const fetchCourses = async () => {
       try {
         const res = await api.courses.getAll();
-        setCourses(
-          res.data.filter(
-            c => (c.instructorId || c.InstructorId) === user.userId // FIXED: Changed from user.id to user.userId
-          )
+        const instructorCourses = res.data.filter(
+          (c) => (c.instructorId || c.InstructorId) === user.id
         );
-      } catch (err) {
-        console.error('Error fetching courses:', err);
+        setCourses(instructorCourses);
+        // Reset selections when courses change
+        setSelectedCourseId('');
+        setSelectedStudentId('');
+        setSelectedAssessmentId('');
+      } catch (error) {
+        console.error('Error fetching courses:', error);
       }
     };
-    if (user && (user.role || '').toLowerCase() === 'instructor') fetchCourses();
+    if (user && user.role?.toLowerCase() === 'instructor') {
+      fetchCourses();
+    }
   }, [user]);
 
   // Fetch assessments and results for selected course
   useEffect(() => {
     const fetchData = async () => {
-      if (!selectedCourseId) return;
+      if (!selectedCourseId) {
+        setAssessments([]);
+        setResults([]);
+        return;
+      }
       setLoading(true);
       try {
         const assessRes = await api.assessments.getAll();
         const courseAssessments = assessRes.data.filter(
-          a => (a.courseId || a.CourseId) === selectedCourseId
+          (a) => (a.courseId || a.CourseId) === selectedCourseId
         );
         setAssessments(courseAssessments);
 
-        // Get all attempts for each assessment
         let allResults = [];
         for (const assessment of courseAssessments) {
           const assessmentId = assessment.assessmentId || assessment.AssessmentId;
-          try {
-            const resultRes = await api.results.getResultsForAssessment(assessmentId);
-            allResults = allResults.concat(resultRes.data || []);
-          } catch (err) {
-            console.error(`Error fetching results for assessment ${assessmentId}:`, err);
-          }
+          const resultRes = await api.results.getResultsForAssessment(assessmentId);
+          allResults = allResults.concat(resultRes.data);
         }
         setResults(allResults);
-      } catch (err) {
-        console.error('Error fetching assessment data:', err);
+      } catch (error) {
+        console.error('Error fetching assessments/results:', error);
       } finally {
         setLoading(false);
       }
@@ -69,16 +71,16 @@ const ProgressAnalysis = () => {
 
   // Build students list and results-by-student
   const students = {};
-  results.forEach(r => {
+  results.forEach((r) => {
     const userId = r.userId || r.UserId;
-    const userName = r.userName || r.UserName || 'Unknown Student';
-    const userEmail = r.userEmail || r.UserEmail || '';
+    const userName = r.userName || r.UserName;
+    const userEmail = r.userEmail || r.UserEmail;
     const assessmentId = r.assessmentId || r.AssessmentId;
     if (!students[userId]) {
       students[userId] = {
-        name: userName,
-        email: userEmail,
-        attempts: {}
+        name: userName || 'Unknown',
+        email: userEmail || '',
+        attempts: {},
       };
     }
     if (!students[userId].attempts[assessmentId]) {
@@ -88,27 +90,36 @@ const ProgressAnalysis = () => {
   });
 
   // Prepare chart data for selected student and assessment
-  let chartData = null;
-  const attempts = (students[selectedStudentId]?.attempts[selectedAssessmentId]) || [];
-  const scores = attempts.map(a => a.score ?? a.Score).filter(v => typeof v === 'number' && !isNaN(v));
+  const attempts = students[selectedStudentId]?.attempts[selectedAssessmentId] || [];
+  const scores = attempts
+    .map((a) => a.score ?? a.Score)
+    .filter((v) => typeof v === 'number' && !isNaN(v));
 
-  if (scores.length > 0) {
-    chartData = {
-      labels: attempts.map((_, idx) => `Attempt ${idx + 1}`),
-      datasets: [
-        {
-          label: 'Score (%)',
-          data: scores,
-          backgroundColor: '#4caf50',
-        },
-      ],
-    };
-  }
+  const chartData = scores.length > 0 ? {
+    labels: attempts.map((_, idx) => `Attempt ${idx + 1}`),
+    datasets: [
+      {
+        label: 'Score (%)',
+        data: scores,
+        backgroundColor: '#4caf50',
+      },
+    ],
+  } : null;
+
+  // Debug data
+  useEffect(() => {
+    console.log('Selected Student ID:', selectedStudentId);
+    console.log('Selected Assessment ID:', selectedAssessmentId);
+    console.log('Students:', students);
+    console.log('Attempts:', attempts);
+    console.log('Scores:', scores);
+    console.log('Chart Data:', chartData);
+  }, [selectedStudentId, selectedAssessmentId, students, attempts, scores, chartData]);
 
   // Helper: get published status for an assessment
   const isAssessmentPublished = (assessmentId) => {
-    return results.some(r =>
-      (r.assessmentId || r.AssessmentId) === assessmentId && (r.published || r.Published)
+    return results.some(
+      (r) => (r.assessmentId || r.AssessmentId) === assessmentId && (r.published || r.Published)
     );
   };
 
@@ -123,21 +134,20 @@ const ProgressAnalysis = () => {
         await api.results.publishResults(assessmentId);
         alert('Results published!');
       }
-      // Refresh data
-      const tempCourseId = selectedCourseId;
-      setSelectedCourseId('');
-      setTimeout(() => setSelectedCourseId(tempCourseId), 100);
-    } catch (err) {
-      console.error('Error toggling publish status:', err);
+    } catch (error) {
+      console.error('Error updating publish status:', error);
       alert('Failed to update publish status.');
+    } finally {
+      setPublishing(null);
     }
-    setPublishing(null);
   };
 
   return (
     <div className="progress-dashboard-bg py-4">
       <div className="progress-card">
-        <h2 className="mb-4 fw-bold text-center" style={{ color: '#4b2994' }}>Student Progress Analysis</h2>
+        <h2 className="mb-4 fw-bold text-center" style={{ color: '#4b2994' }}>
+          Student Progress Analysis
+        </h2>
         <div className="mb-4 row">
           <div className="col-md-4">
             <label htmlFor="course" className="form-label">Select Course</label>
@@ -145,14 +155,14 @@ const ProgressAnalysis = () => {
               className="form-select progress-dropdown"
               id="course"
               value={selectedCourseId}
-              onChange={e => {
+              onChange={(e) => {
                 setSelectedCourseId(e.target.value);
                 setSelectedStudentId('');
                 setSelectedAssessmentId('');
               }}
             >
               <option value="">-- Choose a course --</option>
-              {courses.map(course => (
+              {courses.map((course) => (
                 <option key={course.courseId || course.CourseId} value={course.courseId || course.CourseId}>
                   {course.title || course.Title}
                 </option>
@@ -165,7 +175,7 @@ const ProgressAnalysis = () => {
               className="form-select progress-dropdown"
               id="student"
               value={selectedStudentId}
-              onChange={e => {
+              onChange={(e) => {
                 setSelectedStudentId(e.target.value);
                 setSelectedAssessmentId('');
               }}
@@ -185,11 +195,11 @@ const ProgressAnalysis = () => {
               className="form-select progress-dropdown"
               id="assessment"
               value={selectedAssessmentId}
-              onChange={e => setSelectedAssessmentId(e.target.value)}
+              onChange={(e) => setSelectedAssessmentId(e.target.value)}
               disabled={!selectedStudentId}
             >
               <option value="">-- Choose an assessment --</option>
-              {assessments.map(a => (
+              {assessments.map((a) => (
                 <option key={a.assessmentId || a.AssessmentId} value={a.assessmentId || a.AssessmentId}>
                   {a.title || a.Title}
                 </option>
@@ -197,7 +207,7 @@ const ProgressAnalysis = () => {
             </select>
           </div>
         </div>
-        {selectedStudentId && selectedAssessmentId && (
+        {selectedStudentId && selectedAssessmentId ? (
           chartData ? (
             <div className="progress-bar-chart-card mb-4">
               <h5>Score per Attempt (Bar Chart)</h5>
@@ -207,33 +217,33 @@ const ProgressAnalysis = () => {
                   responsive: true,
                   plugins: {
                     legend: { display: false },
-                    title: { display: false }
+                    title: { display: false },
                   },
                   scales: {
                     y: {
                       beginAtZero: true,
                       max: 100,
-                      title: { display: true, text: 'Score (%)' }
+                      title: { display: true, text: 'Score (%)' },
                     },
                     x: {
-                      title: { display: true, text: 'Attempt' }
-                    }
-                  }
+                      title: { display: true, text: 'Attempt' },
+                    },
+                  },
                 }}
               />
             </div>
           ) : (
             <div className="mb-4 text-muted">
-              No attempts or scores to display for this assessment.
+              No valid scores available for this student and assessment.
             </div>
           )
+        ) : (
+          <div className="mb-4 text-muted">
+            Please select a student and assessment to view the chart.
+          </div>
         )}
         {loading ? (
-          <div className="text-center py-4">
-            <div className="spinner-border text-primary" role="status">
-              <span className="visually-hidden">Loading progress...</span>
-            </div>
-          </div>
+          <div>Loading progress...</div>
         ) : (
           <div className="table-responsive">
             <table className="table table-bordered align-middle progress-table">
@@ -241,12 +251,16 @@ const ProgressAnalysis = () => {
                 <tr>
                   <th>Student Name</th>
                   <th>Email</th>
-                  {assessments.map(a => (
+                  {assessments.map((a) => (
                     <th key={a.assessmentId || a.AssessmentId}>
                       <div className="d-flex flex-column align-items-center">
                         <span>{a.title || a.Title}</span>
                         <button
-                          className={`btn btn-sm mt-1 publish-btn ${isAssessmentPublished(a.assessmentId || a.AssessmentId) ? 'btn-success' : 'btn-outline-secondary'}`}
+                          className={`btn btn-sm mt-1 publish-btn ${
+                            isAssessmentPublished(a.assessmentId || a.AssessmentId)
+                              ? 'btn-success'
+                              : 'btn-outline-secondary'
+                          }`}
                           disabled={publishing === (a.assessmentId || a.AssessmentId)}
                           onClick={() =>
                             handleTogglePublish(
@@ -278,7 +292,7 @@ const ProgressAnalysis = () => {
                     <tr key={studentId}>
                       <td>{s.name}</td>
                       <td>{s.email}</td>
-                      {assessments.map(a => {
+                      {assessments.map((a) => {
                         const assessmentId = a.assessmentId || a.AssessmentId;
                         const attempts = s.attempts[assessmentId] || [];
                         return (
@@ -288,8 +302,16 @@ const ProgressAnalysis = () => {
                             ) : (
                               <div>
                                 {attempts.map((attempt, idx) => (
-                                  <div key={attempt.resultId || attempt.ResultId || idx} className="mb-1">
-                                    <span className={`badge bg-${(attempt.score ?? attempt.Score) >= 80 ? 'success' : (attempt.score ?? attempt.Score) >= 50 ? 'warning' : 'danger'} me-1`}>
+                                  <div key={attempt.resultId || attempt.ResultId || idx}>
+                                    <span
+                                      className={`badge bg-${
+                                        (attempt.score ?? attempt.Score) >= 80
+                                          ? 'success'
+                                          : (attempt.score ?? attempt.Score) >= 50
+                                          ? 'warning'
+                                          : 'danger'
+                                      } me-1`}
+                                    >
                                       Attempt {idx + 1}: {(attempt.score ?? attempt.Score) ?? 0}%
                                     </span>
                                     {attempt.published || attempt.Published ? (
@@ -324,7 +346,7 @@ const ProgressAnalysis = () => {
           box-shadow: 0 2px 24px rgba(0,0,0,0.07);
           padding: 2rem 2.5rem;
           margin-bottom: 2rem;
-          max-width: 1200px;
+          max-width: 900px;
           margin-left: auto;
           margin-right: auto;
         }
