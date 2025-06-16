@@ -24,7 +24,6 @@ const ProgressAnalysis = () => {
           (c) => (c.instructorId || c.InstructorId) === user.id
         );
         setCourses(instructorCourses);
-        // Reset selections when courses change
         setSelectedCourseId('');
         setSelectedStudentId('');
         setSelectedAssessmentId('');
@@ -73,13 +72,13 @@ const ProgressAnalysis = () => {
   const students = {};
   results.forEach((r) => {
     const userId = r.userId || r.UserId;
-    const userName = r.userName || r.UserName;
-    const userEmail = r.userEmail || r.UserEmail;
+    const userName = r.userName || r.UserName || 'Unknown';
+    const userEmail = r.userEmail || r.UserEmail || 'No Email Provided';
     const assessmentId = r.assessmentId || r.AssessmentId;
     if (!students[userId]) {
       students[userId] = {
-        name: userName || 'Unknown',
-        email: userEmail || '',
+        name: userName,
+        email: userEmail,
         attempts: {},
       };
     }
@@ -88,6 +87,12 @@ const ProgressAnalysis = () => {
     }
     students[userId].attempts[assessmentId].push(r);
   });
+
+  // Debug the results data to check email field
+  useEffect(() => {
+    console.log('Results Data:', results);
+    console.log('Students Object:', students);
+  }, [results, students]);
 
   // Prepare chart data for selected student and assessment
   const attempts = students[selectedStudentId]?.attempts[selectedAssessmentId] || [];
@@ -105,16 +110,6 @@ const ProgressAnalysis = () => {
       },
     ],
   } : null;
-
-  // Debug data
-  useEffect(() => {
-    console.log('Selected Student ID:', selectedStudentId);
-    console.log('Selected Assessment ID:', selectedAssessmentId);
-    console.log('Students:', students);
-    console.log('Attempts:', attempts);
-    console.log('Scores:', scores);
-    console.log('Chart Data:', chartData);
-  }, [selectedStudentId, selectedAssessmentId, students, attempts, scores, chartData]);
 
   // Helper: get published status for an assessment
   const isAssessmentPublished = (assessmentId) => {
@@ -141,6 +136,11 @@ const ProgressAnalysis = () => {
       setPublishing(null);
     }
   };
+
+  // Filter students for table display based on selection
+  const displayedStudents = selectedStudentId
+    ? { [selectedStudentId]: students[selectedStudentId] }
+    : students;
 
   return (
     <div className="progress-dashboard-bg py-4">
@@ -184,7 +184,7 @@ const ProgressAnalysis = () => {
               <option value="">-- Choose a student --</option>
               {Object.entries(students).map(([studentId, s]) => (
                 <option key={studentId} value={studentId}>
-                  {s.name} {s.email && `(${s.email})`}
+                  {s.name} {s.email && s.email !== 'No Email Provided' ? `(${s.email})` : ''}
                 </option>
               ))}
             </select>
@@ -281,14 +281,14 @@ const ProgressAnalysis = () => {
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(students).length === 0 ? (
+                {Object.entries(displayedStudents).length === 0 ? (
                   <tr>
                     <td colSpan={2 + assessments.length} className="text-center">
                       No progress data found for this course.
                     </td>
                   </tr>
                 ) : (
-                  Object.entries(students).map(([studentId, s]) => (
+                  Object.entries(displayedStudents).map(([studentId, s]) => (
                     <tr key={studentId}>
                       <td>{s.name}</td>
                       <td>{s.email}</td>
