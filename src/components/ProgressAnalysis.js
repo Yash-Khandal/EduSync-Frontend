@@ -20,12 +20,16 @@ const ProgressAnalysis = () => {
   // Fetch instructor's courses
   useEffect(() => {
     const fetchCourses = async () => {
-      const res = await api.courses.getAll();
-      setCourses(
-        res.data.filter(
-          c => (c.instructorId || c.InstructorId) === user.id
-        )
-      );
+      try {
+        const res = await api.courses.getAll();
+        setCourses(
+          res.data.filter(
+            c => (c.instructorId || c.InstructorId) === user.userId // FIXED: Changed from user.id to user.userId
+          )
+        );
+      } catch (err) {
+        console.error('Error fetching courses:', err);
+      }
     };
     if (user && (user.role || '').toLowerCase() === 'instructor') fetchCourses();
   }, [user]);
@@ -35,21 +39,30 @@ const ProgressAnalysis = () => {
     const fetchData = async () => {
       if (!selectedCourseId) return;
       setLoading(true);
-      const assessRes = await api.assessments.getAll();
-      const courseAssessments = assessRes.data.filter(
-        a => (a.courseId || a.CourseId) === selectedCourseId
-      );
-      setAssessments(courseAssessments);
+      try {
+        const assessRes = await api.assessments.getAll();
+        const courseAssessments = assessRes.data.filter(
+          a => (a.courseId || a.CourseId) === selectedCourseId
+        );
+        setAssessments(courseAssessments);
 
-      // Get all attempts for each assessment
-      let allResults = [];
-      for (const assessment of courseAssessments) {
-        const assessmentId = assessment.assessmentId || assessment.AssessmentId;
-        const resultRes = await api.results.getResultsForAssessment(assessmentId);
-        allResults = allResults.concat(resultRes.data);
+        // Get all attempts for each assessment
+        let allResults = [];
+        for (const assessment of courseAssessments) {
+          const assessmentId = assessment.assessmentId || assessment.AssessmentId;
+          try {
+            const resultRes = await api.results.getResultsForAssessment(assessmentId);
+            allResults = allResults.concat(resultRes.data || []);
+          } catch (err) {
+            console.error(`Error fetching results for assessment ${assessmentId}:`, err);
+          }
+        }
+        setResults(allResults);
+      } catch (err) {
+        console.error('Error fetching assessment data:', err);
+      } finally {
+        setLoading(false);
       }
-      setResults(allResults);
-      setLoading(false);
     };
     fetchData();
   }, [selectedCourseId, publishing]);
@@ -58,8 +71,8 @@ const ProgressAnalysis = () => {
   const students = {};
   results.forEach(r => {
     const userId = r.userId || r.UserId;
-    const userName = r.userName || r.UserName;
-    const userEmail = r.userEmail || r.UserEmail;
+    const userName = r.userName || r.UserName || 'Unknown Student';
+    const userEmail = r.userEmail || r.UserEmail || '';
     const assessmentId = r.assessmentId || r.AssessmentId;
     if (!students[userId]) {
       students[userId] = {
@@ -110,7 +123,12 @@ const ProgressAnalysis = () => {
         await api.results.publishResults(assessmentId);
         alert('Results published!');
       }
-    } catch {
+      // Refresh data
+      const tempCourseId = selectedCourseId;
+      setSelectedCourseId('');
+      setTimeout(() => setSelectedCourseId(tempCourseId), 100);
+    } catch (err) {
+      console.error('Error toggling publish status:', err);
       alert('Failed to update publish status.');
     }
     setPublishing(null);
@@ -211,7 +229,11 @@ const ProgressAnalysis = () => {
           )
         )}
         {loading ? (
-          <div>Loading progress...</div>
+          <div className="text-center py-4">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Loading progress...</span>
+            </div>
+          </div>
         ) : (
           <div className="table-responsive">
             <table className="table table-bordered align-middle progress-table">
@@ -223,7 +245,6 @@ const ProgressAnalysis = () => {
                     <th key={a.assessmentId || a.AssessmentId}>
                       <div className="d-flex flex-column align-items-center">
                         <span>{a.title || a.Title}</span>
-                        {/* Publish/unpublish toggle button */}
                         <button
                           className={`btn btn-sm mt-1 publish-btn ${isAssessmentPublished(a.assessmentId || a.AssessmentId) ? 'btn-success' : 'btn-outline-secondary'}`}
                           disabled={publishing === (a.assessmentId || a.AssessmentId)}
@@ -267,7 +288,7 @@ const ProgressAnalysis = () => {
                             ) : (
                               <div>
                                 {attempts.map((attempt, idx) => (
-                                  <div key={attempt.resultId || attempt.ResultId || idx}>
+                                  <div key={attempt.resultId || attempt.ResultId || idx} className="mb-1">
                                     <span className={`badge bg-${(attempt.score ?? attempt.Score) >= 80 ? 'success' : (attempt.score ?? attempt.Score) >= 50 ? 'warning' : 'danger'} me-1`}>
                                       Attempt {idx + 1}: {(attempt.score ?? attempt.Score) ?? 0}%
                                     </span>
@@ -303,7 +324,7 @@ const ProgressAnalysis = () => {
           box-shadow: 0 2px 24px rgba(0,0,0,0.07);
           padding: 2rem 2.5rem;
           margin-bottom: 2rem;
-          max-width: 900px;
+          max-width: 1200px;
           margin-left: auto;
           margin-right: auto;
         }
