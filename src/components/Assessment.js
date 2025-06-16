@@ -7,7 +7,7 @@ import './Assessment.css';
 const MAX_WARNINGS = 2;
 
 const Assessment = () => {
-  const { id } = useParams(); // assessmentId
+  const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [assessment, setAssessment] = useState(null);
@@ -16,9 +16,19 @@ const Assessment = () => {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [successMsg, setSuccessMsg] = useState('');
-  const [timeLeft, setTimeLeft] = useState(25); // 25 seconds per question
+  const [timeLeft, setTimeLeft] = useState(25);
   const [showWarning, setShowWarning] = useState(false);
   const [warningCount, setWarningCount] = useState(0);
+
+  // Parse questions safely - MOVED UP TO AVOID REFERENCE ERROR
+  let questions = [];
+  if (assessment) {
+    try {
+      questions = JSON.parse(assessment.questions);
+    } catch {
+      questions = [];
+    }
+  }
 
   // Fetch assessment data
   useEffect(() => {
@@ -35,10 +45,53 @@ const Assessment = () => {
     fetchAssessment();
   }, [id]);
 
-  // Timer logic - resets for each question
+  // Submit handler - MOVED UP BEFORE handleAutoSubmit
+  const handleSubmit = useCallback(async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (submitted) return;
+
+    let score = 0;
+    questions.forEach((q, idx) => {
+      if (answers[idx] === q.correctOption) score += 1;
+    });
+    const percentScore = Math.round((score / questions.length) * 100);
+
+    try {
+      await api.results.createResult({
+        assessmentId: assessment.assessmentId,
+        userId: user.id,
+        score: percentScore
+      });
+      setSuccessMsg('Thank you! Your answers have been submitted.');
+      setSubmitted(true);
+
+      if (document.exitFullscreen && document.fullscreenElement) {
+        document.exitFullscreen();
+      }
+
+      setTimeout(() => navigate('/dashboard'), 2000);
+    } catch (err) {
+      setSuccessMsg('Submission failed. Please try again.');
+    }
+  }, [submitted, answers, questions, assessment, user, navigate]);
+
+  // Auto-submit handler - NOW PROPERLY REFERENCES handleSubmit
+  const handleAutoSubmit = useCallback(() => {
+    if (typeof answers[currentQuestion] === 'undefined') {
+      setAnswers(prev => ({ ...prev, [currentQuestion]: -1 }));
+    }
+
+    if (currentQuestion < questions.length - 1) {
+      setCurrentQuestion(prev => prev + 1);
+    } else {
+      handleSubmit({ preventDefault: () => {} });
+    }
+  }, [currentQuestion, answers, questions, handleSubmit]);
+
+  // Timer logic
   useEffect(() => {
-    if (!submitted && assessment) {
-      setTimeLeft(25); // Reset timer to 25 seconds for new question
+    if (!submitted && assessment && questions.length > 0) {
+      setTimeLeft(25);
       const timer = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
@@ -51,34 +104,16 @@ const Assessment = () => {
 
       return () => clearInterval(timer);
     }
-    // eslint-disable-next-line
-  }, [currentQuestion, submitted, assessment]);
+  }, [currentQuestion, submitted, assessment, questions.length, handleAutoSubmit]);
 
-  // Security: Anti-cheating measures
-  const handleAutoSubmit = useCallback(() => {
-    // Auto-select answer if none selected (mark as unanswered)
-    if (typeof answers[currentQuestion] === 'undefined') {
-      setAnswers(prev => ({ ...prev, [currentQuestion]: -1 }));
-    }
-
-    // Move to next question or submit assessment
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(prev => prev + 1);
-    } else {
-      handleSubmit({ preventDefault: () => {} }); // Simulate event object
-    }
-    // eslint-disable-next-line
-  }, [currentQuestion, answers, questions]);
-
+  // Security measures
   useEffect(() => {
     if (submitted) return;
 
-    // Prevent back navigation
     const preventBack = () => window.history.pushState(null, '', window.location.href);
     window.history.pushState(null, '', window.location.href);
     window.addEventListener('popstate', preventBack);
 
-    // Prevent page refresh/close
     const preventUnload = (e) => {
       e.preventDefault();
       e.returnValue = 'Are you sure you want to leave? Your progress will be lost.';
@@ -86,7 +121,6 @@ const Assessment = () => {
     };
     window.addEventListener('beforeunload', preventUnload);
 
-    // Prevent copy/paste/right-click/devtools
     const preventCopy = (e) => e.preventDefault();
     const preventPaste = (e) => e.preventDefault();
     const preventCut = (e) => e.preventDefault();
@@ -111,12 +145,10 @@ const Assessment = () => {
     document.addEventListener('contextmenu', preventRightClick);
     document.addEventListener('keydown', preventKeyboardShortcuts);
 
-    // Request fullscreen
     if (document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen().catch(() => {});
     }
 
-    // Detect tab/window focus loss and fullscreen exit
     const handleCheatAttempt = () => {
       if (!submitted) {
         setWarningCount(prev => {
@@ -154,27 +186,17 @@ const Assessment = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
 
-      // Exit fullscreen after submission
       if (document.exitFullscreen && document.fullscreenElement) {
         document.exitFullscreen();
       }
     };
-    // eslint-disable-next-line
   }, [submitted, handleAutoSubmit]);
 
-  const formatTime = (seconds) => {
-    return `${seconds}s`;
-  };
+  const formatTime = (seconds) => `${seconds}s`;
 
   if (loading) return <div>Loading...</div>;
   if (!assessment) return <div>Assessment not found.</div>;
-
-  let questions = [];
-  try {
-    questions = JSON.parse(assessment.questions);
-  } catch {
-    questions = [];
-  }
+  if (questions.length === 0) return <div>No questions found.</div>;
 
   const totalQuestions = questions.length;
 
@@ -186,38 +208,6 @@ const Assessment = () => {
     setCurrentQuestion(q => Math.min(totalQuestions - 1, q + 1));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (submitted) return;
-
-    // Calculate score (unanswered questions marked as -1 are wrong)
-    let score = 0;
-    questions.forEach((q, idx) => {
-      if (answers[idx] === q.correctOption) score += 1;
-    });
-    const percentScore = Math.round((score / questions.length) * 100);
-
-    try {
-      await api.results.createResult({
-        assessmentId: assessment.assessmentId,
-        userId: user.id,
-        score: percentScore
-      });
-      setSuccessMsg('Thank you! Your answers have been submitted.');
-      setSubmitted(true);
-
-      // Exit fullscreen after submission
-      if (document.exitFullscreen && document.fullscreenElement) {
-        document.exitFullscreen();
-      }
-
-      setTimeout(() => navigate('/dashboard'), 2000);
-    } catch (err) {
-      setSuccessMsg('Submission failed. Please try again.');
-    }
-  };
-
-  // Progress bar width
   const progress = ((currentQuestion + 1) / totalQuestions) * 100;
 
   return (
