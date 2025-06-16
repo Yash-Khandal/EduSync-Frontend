@@ -73,12 +73,10 @@ const ProgressAnalysis = () => {
   results.forEach((r) => {
     const userId = r.userId || r.UserId;
     const userName = r.userName || r.UserName || 'Unknown';
-    const userEmail = r.userEmail || r.UserEmail || 'No Email Provided';
     const assessmentId = r.assessmentId || r.AssessmentId;
     if (!students[userId]) {
       students[userId] = {
         name: userName,
-        email: userEmail,
         attempts: {},
       };
     }
@@ -87,12 +85,6 @@ const ProgressAnalysis = () => {
     }
     students[userId].attempts[assessmentId].push(r);
   });
-
-  // Debug the results data to check email field
-  useEffect(() => {
-    console.log('Results Data:', results);
-    console.log('Students Object:', students);
-  }, [results, students]);
 
   // Prepare chart data for selected student and assessment
   const attempts = students[selectedStudentId]?.attempts[selectedAssessmentId] || [];
@@ -184,7 +176,7 @@ const ProgressAnalysis = () => {
               <option value="">-- Choose a student --</option>
               {Object.entries(students).map(([studentId, s]) => (
                 <option key={studentId} value={studentId}>
-                  {s.name} {s.email && s.email !== 'No Email Provided' ? `(${s.email})` : ''}
+                  {s.name}
                 </option>
               ))}
             </select>
@@ -250,7 +242,6 @@ const ProgressAnalysis = () => {
               <thead>
                 <tr>
                   <th>Student Name</th>
-                  <th>Email</th>
                   {assessments.map((a) => (
                     <th key={a.assessmentId || a.AssessmentId}>
                       <div className="d-flex flex-column align-items-center">
@@ -283,7 +274,7 @@ const ProgressAnalysis = () => {
               <tbody>
                 {Object.entries(displayedStudents).length === 0 ? (
                   <tr>
-                    <td colSpan={2 + assessments.length} className="text-center">
+                    <td colSpan={1 + assessments.length} className="text-center">
                       No progress data found for this course.
                     </td>
                   </tr>
@@ -291,7 +282,6 @@ const ProgressAnalysis = () => {
                   Object.entries(displayedStudents).map(([studentId, s]) => (
                     <tr key={studentId}>
                       <td>{s.name}</td>
-                      <td>{s.email}</td>
                       {assessments.map((a) => {
                         const assessmentId = a.assessmentId || a.AssessmentId;
                         const attempts = s.attempts[assessmentId] || [];
