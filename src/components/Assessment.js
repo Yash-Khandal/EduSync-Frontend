@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import './Assessment.css';
+
+const MAX_WARNINGS = 2;
 
 const Assessment = () => {
   const { id } = useParams(); // assessmentId
@@ -14,8 +16,11 @@ const Assessment = () => {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [successMsg, setSuccessMsg] = useState('');
-  const [timeLeft, setTimeLeft] = useState(10); // 10 seconds per question
+  const [timeLeft, setTimeLeft] = useState(25); // 25 seconds per question
+  const [showWarning, setShowWarning] = useState(false);
+  const [warningCount, setWarningCount] = useState(0);
 
+  // Fetch assessment data
   useEffect(() => {
     const fetchAssessment = async () => {
       try {
@@ -33,7 +38,7 @@ const Assessment = () => {
   // Timer logic - resets for each question
   useEffect(() => {
     if (!submitted && assessment) {
-      setTimeLeft(10); // Reset timer to 10 seconds for new question
+      setTimeLeft(25); // Reset timer to 25 seconds for new question
       const timer = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
@@ -46,9 +51,11 @@ const Assessment = () => {
 
       return () => clearInterval(timer);
     }
+    // eslint-disable-next-line
   }, [currentQuestion, submitted, assessment]);
 
-  const handleAutoSubmit = () => {
+  // Security: Anti-cheating measures
+  const handleAutoSubmit = useCallback(() => {
     // Auto-select answer if none selected (mark as unanswered)
     if (typeof answers[currentQuestion] === 'undefined') {
       setAnswers(prev => ({ ...prev, [currentQuestion]: -1 }));
@@ -60,7 +67,100 @@ const Assessment = () => {
     } else {
       handleSubmit({ preventDefault: () => {} }); // Simulate event object
     }
-  };
+    // eslint-disable-next-line
+  }, [currentQuestion, answers, questions]);
+
+  useEffect(() => {
+    if (submitted) return;
+
+    // Prevent back navigation
+    const preventBack = () => window.history.pushState(null, '', window.location.href);
+    window.history.pushState(null, '', window.location.href);
+    window.addEventListener('popstate', preventBack);
+
+    // Prevent page refresh/close
+    const preventUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = 'Are you sure you want to leave? Your progress will be lost.';
+      return e.returnValue;
+    };
+    window.addEventListener('beforeunload', preventUnload);
+
+    // Prevent copy/paste/right-click/devtools
+    const preventCopy = (e) => e.preventDefault();
+    const preventPaste = (e) => e.preventDefault();
+    const preventCut = (e) => e.preventDefault();
+    const preventRightClick = (e) => e.preventDefault();
+    const preventKeyboardShortcuts = (e) => {
+      if (
+        e.key === 'F12' ||
+        (e.ctrlKey && e.shiftKey && e.key === 'I') ||
+        (e.ctrlKey && e.key === 'u') ||
+        (e.ctrlKey && e.key === 'U') ||
+        (e.ctrlKey && e.shiftKey && e.key === 'C')
+      ) {
+        e.preventDefault();
+        setShowWarning(true);
+        setTimeout(() => setShowWarning(false), 3000);
+      }
+    };
+
+    document.addEventListener('copy', preventCopy);
+    document.addEventListener('paste', preventPaste);
+    document.addEventListener('cut', preventCut);
+    document.addEventListener('contextmenu', preventRightClick);
+    document.addEventListener('keydown', preventKeyboardShortcuts);
+
+    // Request fullscreen
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+
+    // Detect tab/window focus loss and fullscreen exit
+    const handleCheatAttempt = () => {
+      if (!submitted) {
+        setWarningCount(prev => {
+          if (prev + 1 > MAX_WARNINGS) {
+            handleAutoSubmit();
+            return prev + 1;
+          } else {
+            setShowWarning(true);
+            setTimeout(() => setShowWarning(false), 3000);
+            return prev + 1;
+          }
+        });
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) handleCheatAttempt();
+    };
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) handleCheatAttempt();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    return () => {
+      window.removeEventListener('popstate', preventBack);
+      window.removeEventListener('beforeunload', preventUnload);
+      document.removeEventListener('copy', preventCopy);
+      document.removeEventListener('paste', preventPaste);
+      document.removeEventListener('cut', preventCut);
+      document.removeEventListener('contextmenu', preventRightClick);
+      document.removeEventListener('keydown', preventKeyboardShortcuts);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+
+      // Exit fullscreen after submission
+      if (document.exitFullscreen && document.fullscreenElement) {
+        document.exitFullscreen();
+      }
+    };
+    // eslint-disable-next-line
+  }, [submitted, handleAutoSubmit]);
 
   const formatTime = (seconds) => {
     return `${seconds}s`;
@@ -80,10 +180,6 @@ const Assessment = () => {
 
   const handleOptionChange = (qIdx, oIdx) => {
     setAnswers(prev => ({ ...prev, [qIdx]: oIdx }));
-  };
-
-  const handlePrevious = () => {
-    setCurrentQuestion(q => Math.max(0, q - 1));
   };
 
   const handleNext = () => {
@@ -109,6 +205,12 @@ const Assessment = () => {
       });
       setSuccessMsg('Thank you! Your answers have been submitted.');
       setSubmitted(true);
+
+      // Exit fullscreen after submission
+      if (document.exitFullscreen && document.fullscreenElement) {
+        document.exitFullscreen();
+      }
+
       setTimeout(() => navigate('/dashboard'), 2000);
     } catch (err) {
       setSuccessMsg('Submission failed. Please try again.');
@@ -121,6 +223,12 @@ const Assessment = () => {
   return (
     <div className="assessment-bg">
       <div className="assessment-container">
+        {showWarning && (
+          <div className="alert alert-danger position-fixed" style={{ top: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 9999 }}>
+            <i className="fas fa-shield-alt me-2"></i>
+            Security Alert: Unauthorized action detected! ({warningCount}/{MAX_WARNINGS} warnings)
+          </div>
+        )}
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div className="assessment-title">{assessment.title}</div>
           <div 
@@ -175,16 +283,7 @@ const Assessment = () => {
             ))}
           </div>
 
-          <div className="d-flex justify-content-between align-items-center mt-4">
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={handlePrevious}
-              disabled={currentQuestion === 0 || submitted}
-            >
-              &larr; Previous
-            </button>
-            
+          <div className="d-flex justify-content-end align-items-center mt-4">
             {currentQuestion < totalQuestions - 1 ? (
               <button
                 type="button"
